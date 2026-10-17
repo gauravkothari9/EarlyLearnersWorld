@@ -22,7 +22,7 @@ const state = { busy: false, current: null, lastError: null, pausedUntil: 0, log
 const log = (m) => { const line = new Date().toLocaleString() + '  ' + m; state.log.unshift(line); state.log.length = Math.min(state.log.length, 120); console.log('[autopilot]', m); };
 
 function settings() { let s = {}; try { s = JSON.parse(fs.readFileSync(SETTINGS, 'utf8')); } catch (e) {} return Object.assign({}, DEFAULTS, s, { name: 'Leo', randomName: false }); }
-function saveSettings(patch) { const s = Object.assign(settings(), patch); fs.writeFileSync(SETTINGS, JSON.stringify(s, null, 1)); if (s.enabled) setTimeout(tick, 1500); return s; }
+function saveSettings(patch) { const s = Object.assign(settings(), patch); fs.writeFileSync(SETTINGS, JSON.stringify(s, null, 1)); if (s.enabled) setTimeout(safeTick, 1500); return s; }
 
 function upcomingSlots(s, from = Date.now()) {
   const out = [], now = new Date(from);
@@ -76,41 +76,61 @@ async function produce({ publishAt = null, upload = null, format = null } = {}) 
   } finally { state.current = null; }
 }
 
-async function guarded(fn) {
-  if (state.busy) throw new Error('Autopilot is busy — try again in a moment.');
-  state.busy = true; state.lastError = null;
-  try { return await fn(); } catch (e) { state.lastError = e.message; log('ERROR ' + e.message); } finally { state.busy = false; }
+// One video at a time. Work waits its turn in this queue instead of failing with "busy".
+let chain = Promise.resolve();
+state.queued = 0;
+function enqueue(fn) {
+  state.queued++;
+  const p = chain.then(async () => {
+    state.queued--; state.busy = true; state.lastError = null;
+    try { return await fn(); } catch (e) { state.lastError = e.message; log('ERROR ' + e.message); } finally { state.busy = false; }
+  });
+  chain = p.catch(() => {});
+  return p;
 }
+const takenSlots = () => new Set(core.readHistory().filter((h) => h.publishAt && h.status !== 'failed').map((h) => h.publishAt));
 
 async function tick() {
   const s = settings();
-  if (!s.enabled || state.busy || Date.now() < state.pausedUntil) return;
+  // Manual requests go first: the schedule only fills slots when nothing else is waiting.
+  if (!s.enabled || state.busy || state.queued || Date.now() < state.pausedUntil) return;
   if (s.upload) { const st = await yt.status(); if (!st.connected) return; }
-  const taken = new Set(core.readHistory().filter((h) => h.publishAt && h.status !== 'failed').map((h) => h.publishAt));
-  const slot = upcomingSlots(s).find((x) => !taken.has(x));
+  const slot = upcomingSlots(s).find((x) => !takenSlots().has(x));
   if (!slot) return;
-  await guarded(() => produce({ publishAt: s.upload ? slot : slot }));
+  await enqueue(() => produce({ publishAt: slot }));
 }
+const safeTick = () => tick().catch((e) => log('ERROR ' + e.message));
 
-// Manual "run now": count videos, mode = draft (no upload) | now (publish immediately) | schedule (next free slots)
+// Manual run. mode: draft (save MP4 only) | now (one video, uploaded and public right away) |
+// schedule (next free slots). Returns at once; the work runs in the queue.
 function runNow({ count = 1, mode = 'draft', format = null } = {}) {
-  return guarded(async () => {
+  if (mode === 'now') { count = 1; if (format === 'both') format = 'short'; }
+  const ahead = state.queued + (state.busy ? 1 : 0);
+  enqueue(async () => {
     const s = settings();
-    for (let i = 0; i < Math.min(10, count); i++) {
-      let publishAt = null;
-      if (mode === 'schedule') { const taken = new Set(core.readHistory().filter((h) => h.publishAt && h.status !== 'failed').map((h) => h.publishAt)); publishAt = upcomingSlots(Object.assign({}, s, { daysAhead: 30 })).find((x) => !taken.has(x)) || null; }
+    for (let i = 0; i < Math.min(10, Math.max(1, +count || 1)); i++) {
+      const publishAt = mode === 'schedule' ? upcomingSlots(Object.assign({}, s, { daysAhead: 30 })).find((x) => !takenSlots().has(x)) || null : null;
+      if (mode === 'schedule' && !publishAt) throw new Error('No free slot in the next 30 days. Add publish times or days.');
       await produce({ publishAt, upload: mode !== 'draft', format });
     }
   });
+  return { started: true, ahead };
 }
 
-function start() { setInterval(() => tick().catch(() => {}), 60 * 1000); setTimeout(() => tick().catch(() => {}), 5000); }
+// Entries left at rendering/uploading by a restart would block their slot forever: mark them failed.
+function clearInterrupted() {
+  for (const h of core.readHistory()) {
+    if (h.status === 'rendering' || h.status === 'uploading') core.updateHistory(h.id, { status: 'failed', error: 'Interrupted (server restarted)' });
+  }
+}
+
+function start() { clearInterrupted(); setInterval(safeTick, 60 * 1000); setTimeout(safeTick, 5000); }
 
 async function statusReport() {
   const s = settings(), hist = core.readHistory();
   const taken = {}; hist.filter((h) => h.publishAt && h.status !== 'failed').forEach((h) => (taken[h.publishAt] = h));
   return {
-    settings: s, busy: state.busy, current: state.current, lastError: state.lastError, pausedUntil: state.pausedUntil, log: state.log.slice(0, 60),
+    settings: s, busy: state.busy, queued: state.queued, current: state.current, lastError: state.lastError, pausedUntil: state.pausedUntil, log: state.log.slice(0, 60),
     youtube: await yt.status(), slots: upcomingSlots(s).map((at) => ({ at, entry: taken[at] || null })),
     history: hist.slice(-80).reverse(), totals: { all: hist.length, published: hist.filter((h) => h.status === 'published' || h.status === 'scheduled').length },
   };

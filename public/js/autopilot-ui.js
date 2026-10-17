@@ -33,7 +33,7 @@
     const y = st.youtube;
     $('ytStatus').innerHTML = y.connected ? `✅ Connected${y.channel ? ` to <b>${esc(y.channel.title)}</b>` : ''}${y.error ? ` <span class="pill failed">${esc(y.error)}</span>` : ''}` : y.hasClient ? 'Credentials saved, not connected yet.' : 'Not connected.';
     $('ytSetup').style.display = y.connected ? 'none' : ''; $('ytConnected').style.display = y.connected ? '' : 'none';
-    $('busyBadge').textContent = st.busy ? 'working: ' + (st.current || '…') : st.settings.enabled ? 'autopilot on' : 'idle';
+    $('busyBadge').textContent = st.busy ? 'working: ' + (st.current || '…') + (st.queued ? ` · ${st.queued} waiting` : '') : st.settings.enabled ? 'autopilot on' : 'idle';
     $('busyBadge').className = 'badge ' + (st.busy ? 'warn' : st.settings.enabled ? 'ok' : '');
     $('slots').innerHTML = st.slots.length ? st.slots.map((s) => `<div class="slot"><span>${when(s.at)}</span><span>${s.entry ? `<span class="pill ${s.entry.status}">${s.entry.status}</span> ${esc(s.entry.styleName)}` : '<span class="muted">open</span>'}</span></div>`).join('') : '<p class="muted">No slots in the planning window.</p>';
     $('totals').textContent = `· ${st.totals.all} made, ${st.totals.published} on YouTube`;
@@ -48,8 +48,14 @@
   $('sEnabled').onchange = async () => { await post('/api/autopilot/settings', { enabled: $('sEnabled').checked }); refresh(); };
   document.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = async () => {
     const mode = b.dataset.mode;
-    if (mode === 'now' && !confirm('Render and publish to YouTube right away?')) return;
-    try { await post('/api/autopilot/run', { mode, count: +$('runCount').value, format: $('runFormat').value }); alertBox('Started. Rendering takes about 30–60 seconds per video; watch the history below.'); setTimeout(refresh, 800); } catch (e) { alertBox(e.message, true); }
+    const count = mode === 'now' ? 1 : +$('runCount').value;
+    if (mode === 'now' && !confirm('Make 1 new video and publish it on YouTube right away?')) return;
+    try {
+      const r = await post('/api/autopilot/run', { mode, count, format: $('runFormat').value });
+      const what = mode === 'now' ? '1 video will be made and published right away' : mode === 'schedule' ? `${count} video(s) will be made and scheduled` : `${count} video(s) will be made (no upload)`;
+      alertBox(`${what}. ${r.ahead ? `Starts after ${r.ahead} job(s) already running or waiting.` : 'Starting now.'} Each video takes about 2 minutes; watch the history below.`);
+      setTimeout(refresh, 800);
+    } catch (e) { alertBox(e.message, true); }
   }));
   function alertBox(msg, err) { const n = $('runMsg'); n.style.display = ''; n.className = 'note' + (err ? ' err' : ''); n.textContent = msg; }
 

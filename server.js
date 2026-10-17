@@ -144,7 +144,7 @@ async function handle(req, res) {
     if (p === '/api/random/pick' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); return json(res, 200, core.pickRandom(o)); }
     if (p === '/api/autopilot/status') return json(res, 200, await autopilot.statusReport());
     if (p === '/api/autopilot/settings' && req.method === 'POST') return json(res, 200, autopilot.saveSettings(JSON.parse((await readBody(req)).toString())));
-    if (p === '/api/autopilot/run' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); autopilot.runNow(o); return json(res, 200, { started: true }); }
+    if (p === '/api/autopilot/run' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); return json(res, 200, autopilot.runNow(o)); }
     if (p === '/api/youtube/client' && req.method === 'POST') { yt.setClient(JSON.parse((await readBody(req)).toString())); return json(res, 200, { ok: true, redirectUri: redirectUri() }); }
     if (p === '/api/youtube/disconnect' && req.method === 'POST') { yt.disconnect(); return json(res, 200, { ok: true }); }
     if (p === '/api/youtube/connect') { const r = String(url.searchParams.get('return') || '').replace(/\/+$/, ''); ytReturn = okReturn(r) ? r : null; res.writeHead(302, { Location: yt.authUrl(redirectUri()) }); return res.end(); }
@@ -211,6 +211,9 @@ async function handle(req, res) {
     json(res, 500, { error: e.message });
   }
 }
+
+// A failed background task should be logged, never take the whole server down.
+process.on('unhandledRejection', (e) => console.error('[unhandled]', e && e.message ? e.message : e));
 
 function startServer(port = +process.env.PORT || 5180, o = {}) {
   PORT = port; runner.init(port, events);
