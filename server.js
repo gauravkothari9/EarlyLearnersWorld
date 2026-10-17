@@ -44,6 +44,17 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const events = new EventEmitter();
 const jobs = new Map();
 
+// Drop exports whose page went away (tab closed mid-export): stop ffmpeg and delete the temp folder.
+setInterval(() => {
+  for (const job of jobs.values()) {
+    if (job.finishing || Date.now() - job.seen < 3 * 60 * 1000) continue;
+    jobs.delete(job.id);
+    try { job.ff.kill('SIGKILL'); } catch (e) {}
+    setTimeout(() => fs.rmSync(job.dir, { recursive: true, force: true }), 2000);
+    console.log(`[job ${job.id}] abandoned after ${job.frames} frames, cleaned up`);
+  }
+}, 60 * 1000).unref();
+
 function readBody(req) {
   return new Promise((res, rej) => { const chunks = []; req.on('data', (c) => chunks.push(c)); req.on('end', () => res(Buffer.concat(chunks))); req.on('error', rej); });
 }
@@ -153,7 +164,7 @@ async function handle(req, res) {
       const dir = path.join(TMP, id); fs.mkdirSync(dir, { recursive: true });
       const fps = spec.fps || 30;
       const ff = spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(fps), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(fps), path.join(dir, 'video.mp4')], { windowsHide: true });
-      const job = Object.assign({}, spec, { id, dir, ff, ffErr: '', frames: 0 });
+      const job = Object.assign({}, spec, { id, dir, ff, ffErr: '', frames: 0, seen: Date.now() });
       ff.stderr.on('data', (d) => { job.ffErr += d; if (job.ffErr.length > 20000) job.ffErr = job.ffErr.slice(-8000); });
       ff.stdin.on('error', () => {});
       jobs.set(id, job);
@@ -163,6 +174,7 @@ async function handle(req, res) {
     let m = p.match(/^\/api\/job\/([a-z0-9]+)\/(frame|audio|finish)$/);
     if (m && req.method === 'POST') {
       const job = jobs.get(m[1]); if (!job) return json(res, 404, { error: 'no such job' });
+      job.seen = Date.now();
       if (m[2] === 'frame') {
         const buf = await readBody(req);
         if (!job.ff.stdin.write(buf)) await new Promise((r) => job.ff.stdin.once('drain', r));
@@ -171,6 +183,7 @@ async function handle(req, res) {
       }
       if (m[2] === 'audio') { fs.writeFileSync(path.join(job.dir, 'music.wav'), await readBody(req)); return json(res, 200, { ok: true }); }
       if (m[2] === 'finish') {
+        job.finishing = true;
         const out = await finish(job);
         jobs.delete(job.id);
         if (job.record !== false && job.seed > 0 && job.fp) core.addHistory({ fp: job.fp, styleId: job.styleId, styleName: job.styleName, seed: job.seed, name: job.heroName, formats: [job.format], files: [path.basename(out)], status: 'rendered', source: 'studio' });
