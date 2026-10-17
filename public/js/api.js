@@ -35,7 +35,7 @@
     if (shown) return; shown = true;
     const draw = () => {
       const box = document.createElement('div');
-      box.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(20,24,40,.75);font:15px Nunito,system-ui,sans-serif';
+      box.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#000;font:15px Nunito,system-ui,sans-serif';
       box.innerHTML = '<form style="background:#fff;color:#222;padding:24px;border-radius:14px;width:min(320px,90vw);box-shadow:0 10px 40px rgba(0,0,0,.3)">'
         + '<div style="font:700 20px Fredoka,sans-serif;margin-bottom:12px">Studio login</div>'
         + '<input type="password" placeholder="Admin password" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccc;border-radius:8px;font:inherit">'
