@@ -53,5 +53,6 @@
     };
     document.body ? draw() : document.addEventListener('DOMContentLoaded', draw);
   }
-  window.studioLogout = () => { try { localStorage.removeItem(KEY_NAME); } catch (e) {} location.reload(); };
+  if (!getKey()) showLogin(); // no saved password: cover the page before it draws
+  window.studioLogout =() => { try { localStorage.removeItem(KEY_NAME); } catch (e) {} location.reload(); };
 })();
