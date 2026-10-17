@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube Autopilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .ap { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .ap .wide { grid-column: 1 / -1; }
+    .ap h2 { display: flex; align-items: center; gap: 8px; }
+    .steps { margin: 6px 0 12px; padding-left: 20px; font-size: 13px; color: var(--muted); }
+    .steps li { margin-bottom: 4px; }
+    .steps code, .mono2 { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: #f4eee6; padding: 1px 5px; border-radius: 5px; color: var(--ink); }
+    textarea { width: 100%; min-height: 70px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; font: 600 13px Nunito, sans-serif; color: var(--ink); background: #fffdf9; resize: vertical; margin-top: 4px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .days { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+    .days label { margin: 0; background: #f4eee6; padding: 5px 9px; border-radius: 8px; font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
+    .note { font-size: 12px; background: #fff6dc; border: 1px solid #ffe2a0; color: #7a5a00; border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+    .note.err { background: #ffecec; border-color: #ffb9b9; color: #a40000; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .actions button { width: auto; margin: 0; padding: 10px 14px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: #f1ebff; color: var(--accent2); }
+    .pill.published, .pill.scheduled { background: #e3f8ee; color: var(--ok); }
+    .pill.failed { background: #ffecec; color: #c00; }
+    .pill.rendering, .pill.uploading { background: #fff1d6; color: #b87400; }
+    .log { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; background: #1d1430; color: #d9d2ff; border-radius: 12px; padding: 10px 12px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; }
+    .switch input { width: 20px; height: 20px; }
+    .slots { display: grid; gap: 6px; }
+    .slot { display: flex; justify-content: space-between; gap: 10px; background: #faf6f0; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+    .tablewrap { overflow-x: auto; }
+    @media (max-width: 900px) { .ap { grid-template-columns: 1fr; padding: 16px; } .row2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">▶</span><div><h1>YouTube Autopilot</h1><p>Random, never-repeating videos · scheduled publishing</p></div></div>
+    <div class="top-actions"><a class="nav" style="background:#7c5cff" href="index.html">← Studio</a><div id="busyBadge" class="badge">…</div></div>
+  </header>
+
+  <main class="ap">
+    <section class="panel">
+      <h2>1 · Connect YouTube</h2>
+      <div id="ytStatus" class="muted">Checking…</div>
+      <div id="ytSetup">
+        <ol class="steps">
+          <li>Open <b>console.cloud.google.com</b>, create a project, and enable <b>YouTube Data API v3</b>.</li>
+          <li><b>OAuth consent screen</b>: choose External, then add your Google account under <b>Test users</b>.</li>
+          <li><b>Credentials → Create credentials → OAuth client ID → Desktop app</b>. Download the JSON.</li>
+          <li>Paste the JSON below (or the client ID and secret) and press <b>Save</b>, then <b>Connect</b>.</li>
+        </ol>
+        <label>client_secret JSON<textarea id="ytJson" placeholder='{"installed":{"client_id":"…","client_secret":"…"}}'></textarea></label>
+        <div class="row2"><label>Client ID<input id="ytId"></label><label>Client secret<input id="ytSecret" type="password"></label></div>
+        <div class="actions"><button class="ghost" id="ytSave">Save credentials</button><button class="primary" id="ytConnect">Connect YouTube</button></div>
+      </div>
+      <div class="actions" id="ytConnected" style="display:none;margin-top:10px"><button class="ghost" id="ytDisconnect">Disconnect</button></div>
+      <div class="note">A Google API project only gets <b>public</b> uploads after it passes Google's free audit. Before that, videos you upload stay <b>private</b>. Test-mode logins also expire after 7 days, so you'll need to reconnect. Request the audit, or publish the consent screen, to lift both limits. Each upload uses about 1,600 of the 10,000 daily API units, so the limit is roughly 6 uploads a day.</div>
+    </section>
+
+    <section class="panel">
+      <h2>2 · Make videos now</h2>
+      <p class="muted">Each video gets a style and variation that has never been made before: new content, hero, colours, music key and tempo.</p>
+      <div class="row2">
+        <label>Format<select id="runFormat"><option value="short">Short 9:16</option><option value="video">Video 16:9</option><option value="both">Both</option></select></label>
+        <label>How many<select id="runCount"><option>1</option><option>2</option><option>3</option><option>5</option></select></label>
+      </div>
+      <div class="actions">
+        <button class="ghost" data-mode="draft">Generate only (save MP4)</button>
+        <button class="primary" data-mode="now">Generate + publish now</button>
+        <button class="ghost" data-mode="schedule">Generate + schedule next free slot</button>
+      </div>
+      <div id="runMsg" class="note" style="display:none"></div>
+      <h2 class="mt">Upcoming slots</h2>
+      <div id="slots" class="slots"></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>3 · Autopilot schedule <label class="switch" style="margin-left:auto"><input type="checkbox" id="sEnabled"> Autopilot ON</label></h2>
+      <p class="muted">While this studio is running, autopilot keeps the next few days filled. Each video uploads as scheduled and YouTube publishes it at the time you pick, even if your computer is off by then.</p>
+      <div class="row2">
+        <label>Publish times (24h, comma-separated)<input id="sSlots" placeholder="09:00, 17:00"></label>
+        <label>Plan how many days ahead<select id="sAhead"><option>1</option><option>2</option><option selected>3</option><option>5</option><option>7</option></select></label>
+      </div>
+      <div class="field">Days<div class="days" id="sDays"></div></div>
+      <div class="row2">
+        <label>Format<select id="sFormat"><option value="short">Short 9:16</option><option value="video">Video 16:9</option><option value="both">Both (2 uploads)</option></select></label>
+        <label>Privacy when published<select id="sPrivacy"><option value="public">Public</option><option value="unlisted">Unlisted</option><option value="private">Private</option></select></label>
+        <label>Upload to YouTube<select id="sUpload"><option value="true">Yes</option><option value="false">No — only save MP4s</option></select></label>
+        <label>Category<select id="sCategory"><option value="1">Film &amp; Animation</option><option value="27">Education</option><option value="24">Entertainment</option></select></label>
+        <label>Channel name (watermark)<input id="sChannel"></label>
+        <label>Narrator voice<select id="sVoice"></select></label>
+        <label>Lessons<select id="sLessons"><option value="true">Learning lessons only (shapes, counting, colors, animals, birds…)</option><option value="false">All styles (stories too)</option></select></label>
+        <label>Teacher<input id="sName" value="Leo" readonly title="Leo teaches in every video"></label>
+      </div>
+      <label class="inline" style="margin:4px 0 12px"><input type="checkbox" id="sKids" checked> Made for kids (required for children's content under COPPA)</label>
+      <label>Title template <span class="muted">— {style} {name} {channel}; Shorts get #shorts added</span><input id="sTitle"></label>
+      <label>Description template<textarea id="sDesc"></textarea></label>
+      <label>Tags (comma-separated)<input id="sTags"></label>
+      <div class="actions"><button class="primary" id="sSave">Save schedule</button></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>History <span class="muted" id="totals"></span></h2>
+      <div class="tablewrap"><table><thead><tr><th>Created</th><th>Style</th><th>Variation</th><th>Hero</th><th>Status</th><th>Publish at</th><th>Files / links</th></tr></thead><tbody id="hist"></tbody></table></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Activity log</h2>
+      <div id="log" class="log">…</div>
+    </section>
+  </main>
+
+  <script src="js/autopilot-ui.js"></script>
+</body>
+</html>

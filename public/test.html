@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#222}canvas{display:block}</style></head><body><canvas id="c"></canvas>
+<script src="js/engine.js"></script><script src="js/props.js"></script><script src="js/render.js"></script><script src="js/styles.js"></script><script src="js/styles2.js"></script><script src="js/styles3.js"></script><script src="js/audio.js"></script>
+<script>
+(async()=>{
+ try{await document.fonts.load('700 64px Fredoka');}catch(e){}
+ const q=new URLSearchParams(location.search), land=q.get('land')==='1', seed=+(q.get('seed')||0);
+ const ids=(q.get('styles')||q.get('style')||'wheels').split(',');
+ const w=land?240:135,h=land?135:240,cols=8;
+ const cv=document.getElementById('c');cv.width=w*cols;cv.height=h*ids.length;const c=cv.getContext('2d');
+ const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;
+ ids.forEach((id,row)=>{const st=KS.STYLES.find(s=>s.id===id); if(!st)return; const opts={name:'Leo',outro:false,captions:true,seed};
+  const tl=KS.timeline(st,opts); tl.scenes.slice(0,cols).forEach((s,i)=>{KS.renderFrame(tmp.getContext('2d'),w,h,st,s.start+s.d*0.62,opts);c.drawImage(tmp,i*w,row*h);});});
+ document.title='ok';
+})().catch(e=>{document.body.innerHTML='<h1 style="color:red;font-size:14px">'+e.stack+'</h1>';});
+</script></body></html>
