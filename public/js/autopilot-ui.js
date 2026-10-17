@@ -41,7 +41,7 @@
     $('log').textContent = (st.lastError ? 'Last error: ' + st.lastError + '\n\n' : '') + (st.log.join('\n') || 'No activity yet.');
   }
 
-  $('ytSave').onclick = async () => { try { const r = await post('/api/youtube/client', { json: $('ytJson').value, clientId: $('ytId').value, clientSecret: $('ytSecret').value }); alertBox(`Saved. Redirect used: ${r.redirectUri} (Desktop app clients accept it automatically).`); refresh(); } catch (e) { alertBox(e.message, true); } };
+  $('ytSave').onclick = async () => { try { const r = await post('/api/youtube/client', { json: $('ytJson').value, clientId: $('ytId').value, clientSecret: $('ytSecret').value }); alertBox(`Saved. Redirect used: ${r.redirectUri} ${r.redirectUri.startsWith('https:') ? '(add it to your Web application client in Google Cloud).' : '(Desktop app clients accept it automatically).'}`); refresh(); } catch (e) { alertBox(e.message, true); } };
   $('ytConnect').onclick = () => { location.href = '/api/youtube/connect'; };
   $('ytDisconnect').onclick = async () => { await post('/api/youtube/disconnect'); refresh(); };
   $('sSave').onclick = async () => { try { await post('/api/autopilot/settings', readSettings()); alertBox('Schedule saved.'); refresh(); } catch (e) { alertBox(e.message, true); } };

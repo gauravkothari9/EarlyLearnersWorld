@@ -12,7 +12,10 @@ const runner = require('./runner');
 const yt = require('./youtube');
 const autopilot = require('./autopilot');
 let PORT = 5180;
-const redirectUri = () => `http://127.0.0.1:${PORT}/oauth2callback`;
+// PUBLIC_URL is set on a hosted server (e.g. https://name.example.com). Locally the loopback address is used.
+const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+const redirectUri = () => (PUBLIC_URL ? `${PUBLIC_URL}/oauth2callback` : `http://127.0.0.1:${PORT}/oauth2callback`);
+const siteUrl = () => PUBLIC_URL || `http://localhost:${PORT}`;
 
 const ROOT = __dirname;
 const PUB = path.join(ROOT, 'public');
@@ -105,8 +108,8 @@ async function handle(req, res) {
     if (p === '/api/youtube/disconnect' && req.method === 'POST') { yt.disconnect(); return json(res, 200, { ok: true }); }
     if (p === '/api/youtube/connect') { res.writeHead(302, { Location: yt.authUrl(redirectUri()) }); return res.end(); }
     if (p === '/oauth2callback') {
-      try { if (url.searchParams.get('error')) throw new Error(url.searchParams.get('error')); await yt.handleCallback(url.searchParams.get('code'), url.searchParams.get('state'), redirectUri()); res.writeHead(302, { Location: `http://localhost:${PORT}/autopilot.html?yt=connected` }); }
-      catch (e) { res.writeHead(302, { Location: `http://localhost:${PORT}/autopilot.html?yt=error&msg=` + encodeURIComponent(e.message) }); }
+      try { if (url.searchParams.get('error')) throw new Error(url.searchParams.get('error')); await yt.handleCallback(url.searchParams.get('code'), url.searchParams.get('state'), redirectUri()); res.writeHead(302, { Location: `${siteUrl()}/autopilot.html?yt=connected` }); }
+      catch (e) { res.writeHead(302, { Location: `${siteUrl()}/autopilot.html?yt=error&msg=` + encodeURIComponent(e.message) }); }
       return res.end();
     }
     if (p === '/api/outputs') {

@@ -19,7 +19,7 @@ const VOICES = [
   { id: 'en-US-AndrewNeural', label: 'Andrew — calm male (natural)', rate: '-15%', pitch: '+0Hz' },
   { id: 'Microsoft Zira Desktop', label: 'Zira — offline (robotic)', sapi: true },
   { id: 'Microsoft David Desktop', label: 'David — offline (robotic)', sapi: true },
-];
+].filter((v) => !v.sapi || process.platform === 'win32'); // offline voices need Windows
 const DEFAULT_VOICE = VOICES[0].id;
 
 function run(cmd, args) {

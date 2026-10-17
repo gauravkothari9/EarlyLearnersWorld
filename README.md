@@ -86,3 +86,14 @@ it falls back to the offline Windows voice.
 - `voice.js`: natural narration with cache. `core.js`: style library on the server and history.
 - `runner.js`: headless-browser renderer. `youtube.js`: OAuth and upload. `autopilot.js`: scheduler.
 - `data/`: your settings, YouTube credentials, tokens and history. **Keep this folder private.**
+
+## Hosting on AWS
+The studio runs on the shared TurtleReels EC2 box (ap-south-1) at
+`https://earlylearners.43-205-166-13.sslip.io`, behind Caddy with HTTPS and a password (user `admin`).
+- **Deploy or update:** commit, then run `powershell -ExecutionPolicy Bypass -File deploy\update.ps1`.
+  It ships the committed code only; the server keeps its own `data/`, `output/` and password.
+- **SSH times out:** your home IP changed. Run `node deploy\aws-provision.mjs` in the *Turtle Reels* folder.
+- **YouTube on the server:** create a Google OAuth client of type *Web application* and add
+  `https://earlylearners.43-205-166-13.sslip.io/oauth2callback` as an authorized redirect URI.
+- **Logs:** `sudo journalctl -u kids-shorts -f`. Password: `~/kids-shorts/.admin-password`.
+- Autopilot times use India time (`TZ=Asia/Kolkata` in the service). Stop Autopilot on your PC once the server runs it, or both will upload.

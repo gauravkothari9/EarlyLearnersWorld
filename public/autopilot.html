@@ -53,7 +53,7 @@
         <ol class="steps">
           <li>Open <b>console.cloud.google.com</b>, create a project, and enable <b>YouTube Data API v3</b>.</li>
           <li><b>OAuth consent screen</b>: choose External, then add your Google account under <b>Test users</b>.</li>
-          <li><b>Credentials → Create credentials → OAuth client ID → Desktop app</b>. Download the JSON.</li>
+          <li><b>Credentials → Create credentials → OAuth client ID → Desktop app</b>. Download the JSON. On the hosted server, choose <b>Web application</b> instead and add <code>https://&lt;your-server&gt;/oauth2callback</code> under Authorized redirect URIs.</li>
           <li>Paste the JSON below (or the client ID and secret) and press <b>Save</b>, then <b>Connect</b>.</li>
         </ol>
         <label>client_secret JSON<textarea id="ytJson" placeholder='{"installed":{"client_id":"…","client_secret":"…"}}'></textarea></label>
