@@ -53,7 +53,9 @@ async function produce({ publishAt = null, upload = null, format = null } = {}) 
   log(`picked ${pick.styleName} #${pick.seed} with ${name}${publishAt ? ' for ' + new Date(publishAt).toLocaleString() : ''}`);
   try {
     const jobs = formats.map((f) => ({ styleId: pick.styleId, seed: pick.seed, format: f, name, voice: s.voice, res: s.res, fps: s.fps, channel: s.channel, captions: s.captions, outro: s.outro, outName: `${stamp}-${pick.styleId}-${pick.seed}-${f}`, record: false }));
+    state.stage = 'starting';
     const results = await renderJobs(jobs, log);
+    state.stage = upload ? 'uploading' : 'done';
     const files = results.map((r) => r.file);
     core.updateHistory(entry.id, { files, status: upload ? 'uploading' : 'rendered' });
     log(`rendered ${files.join(', ')}`);
@@ -73,7 +75,7 @@ async function produce({ publishAt = null, upload = null, format = null } = {}) 
     core.updateHistory(entry.id, { status: 'failed', error: e.message });
     if (/quota/i.test(e.message) || e.reason === 'quotaExceeded' || e.reason === 'uploadLimitExceeded') { state.pausedUntil = Date.now() + 6 * 3600 * 1000; log('YouTube daily limit reached — pausing for 6 hours'); }
     throw e;
-  } finally { state.current = null; }
+  } finally { state.current = null; state.stage = null; }
 }
 
 // One video at a time. Work waits its turn in this queue instead of failing with "busy".
@@ -130,7 +132,7 @@ async function statusReport() {
   const s = settings(), hist = core.readHistory();
   const taken = {}; hist.filter((h) => h.publishAt && h.status !== 'failed').forEach((h) => (taken[h.publishAt] = h));
   return {
-    settings: s, busy: state.busy, queued: state.queued, current: state.current, lastError: state.lastError, pausedUntil: state.pausedUntil, log: state.log.slice(0, 60),
+    settings: s, busy: state.busy, queued: state.queued, current: state.current, stage: state.stage, lastError: state.lastError, pausedUntil: state.pausedUntil, log: state.log.slice(0, 60),
     youtube: await yt.status(), slots: upcomingSlots(s).map((at) => ({ at, entry: taken[at] || null })),
     history: hist.slice(-80).reverse(), totals: { all: hist.length, published: hist.filter((h) => h.status === 'published' || h.status === 'scheduled').length },
   };

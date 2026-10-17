@@ -176,7 +176,7 @@
     const idx = K.STYLES.indexOf(style) + 1;
     const v = K.variant(style, opts.seed);
     const name = outName || `${String(idx).padStart(2, '0')}-${style.id}${opts.seed ? '-v' + opts.seed : ''}-${format}`;
-    const job = await (await fetch('/api/job', { method: 'POST', body: JSON.stringify({ name, width: W, height: H, fps, voice: opts.narration ? K.voiceLines(style, opts) : [], voiceName: $('optVoice').value, styleId: style.id, styleName: style.name, seed: opts.seed || 0, fp: v.fp, format, heroName: opts.name, record: opts.record }) })).json();
+    const job = await (await fetch('/api/job', { method: 'POST', body: JSON.stringify({ name, total: n, width: W, height: H, fps, voice: opts.narration ? K.voiceLines(style, opts) : [], voiceName: $('optVoice').value, styleId: style.id, styleName: style.name, seed: opts.seed || 0, fp: v.fp, format, heroName: opts.name, record: opts.record }) })).json();
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const c = cv.getContext('2d');
     const o = Object.assign({}, opts, { _tl: T });
@@ -186,7 +186,7 @@
       const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.93));
       await pending;
       pending = fetch(`/api/job/${job.id}/frame`, { method: 'POST', body: blob });
-      if (i % 10 === 0) onProgress(i / n, `${style.name} · ${format} · frame ${i}/${n}`);
+      if (i % 10 === 0) onProgress(i / n, `${style.name} · ${format} · ${Math.round((i / n) * 100)}% done, ${100 - Math.round((i / n) * 100)}% left · frame ${i} of ${n}`);
     }
     await pending;
     await fetch(`/api/job/${job.id}/audio`, { method: 'POST', body: K.toWav(K.renderAudio(style, opts)) });

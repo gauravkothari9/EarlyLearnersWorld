@@ -142,7 +142,7 @@ async function handle(req, res) {
     if (p === '/api/styles') return json(res, 200, core.styleList());
     if (p === '/api/history') return json(res, 200, core.readHistory().slice(-200).reverse());
     if (p === '/api/random/pick' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); return json(res, 200, core.pickRandom(o)); }
-    if (p === '/api/autopilot/status') return json(res, 200, await autopilot.statusReport());
+    if (p === '/api/autopilot/status') return json(res, 200, Object.assign(await autopilot.statusReport(), { renders: [...jobs.values()].map((j) => ({ name: j.name, format: j.format, frames: j.frames, total: j.total || 0, stage: j.stage || 'frames', elapsed: Date.now() - j.started })) }));
     if (p === '/api/autopilot/settings' && req.method === 'POST') return json(res, 200, autopilot.saveSettings(JSON.parse((await readBody(req)).toString())));
     if (p === '/api/autopilot/run' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); return json(res, 200, autopilot.runNow(o)); }
     if (p === '/api/youtube/client' && req.method === 'POST') { yt.setClient(JSON.parse((await readBody(req)).toString())); return json(res, 200, { ok: true, redirectUri: redirectUri() }); }
@@ -164,7 +164,7 @@ async function handle(req, res) {
       const dir = path.join(TMP, id); fs.mkdirSync(dir, { recursive: true });
       const fps = spec.fps || 30;
       const ff = spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(fps), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(fps), path.join(dir, 'video.mp4')], { windowsHide: true });
-      const job = Object.assign({}, spec, { id, dir, ff, ffErr: '', frames: 0, seen: Date.now() });
+      const job = Object.assign({}, spec, { id, dir, ff, ffErr: '', frames: 0, seen: Date.now(), started: Date.now() });
       ff.stderr.on('data', (d) => { job.ffErr += d; if (job.ffErr.length > 20000) job.ffErr = job.ffErr.slice(-8000); });
       ff.stdin.on('error', () => {});
       jobs.set(id, job);
@@ -181,9 +181,9 @@ async function handle(req, res) {
         job.frames++;
         return json(res, 200, { ok: true });
       }
-      if (m[2] === 'audio') { fs.writeFileSync(path.join(job.dir, 'music.wav'), await readBody(req)); return json(res, 200, { ok: true }); }
+      if (m[2] === 'audio') { job.stage = 'mixing'; fs.writeFileSync(path.join(job.dir, 'music.wav'), await readBody(req)); return json(res, 200, { ok: true }); }
       if (m[2] === 'finish') {
-        job.finishing = true;
+        job.finishing = true; job.stage = 'mixing';
         const out = await finish(job);
         jobs.delete(job.id);
         if (job.record !== false && job.seed > 0 && job.fp) core.addHistory({ fp: job.fp, styleId: job.styleId, styleName: job.styleName, seed: job.seed, name: job.heroName, formats: [job.format], files: [path.basename(out)], status: 'rendered', source: 'studio' });

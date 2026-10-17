@@ -27,6 +27,7 @@
   }
 
   async function refresh() {
+    clearTimeout(refresh.t); refresh.t = setTimeout(refresh, 4000); // keeps polling even if this call fails
     let st;
     try { st = await (await fetch('/api/autopilot/status')).json(); } catch (e) { $('busyBadge').textContent = 'server offline'; $('busyBadge').className = 'badge warn'; return; }
     if (!loaded) { fillSettings(st.settings); loaded = true; }
@@ -38,6 +39,27 @@
     $('slots').innerHTML = st.slots.length ? st.slots.map((s) => `<div class="slot"><span>${when(s.at)}</span><span>${s.entry ? `<span class="pill ${s.entry.status}">${s.entry.status}</span> ${esc(s.entry.styleName)}` : '<span class="muted">open</span>'}</span></div>`).join('') : '<p class="muted">No slots in the planning window.</p>';
     $('totals').textContent = `· ${st.totals.all} made, ${st.totals.published} on YouTube`;
     $('hist').innerHTML = st.history.map((h) => `<tr><td>${when(h.createdAt)}</td><td>${esc(h.styleName || h.styleId)}</td><td class="mono2">#${h.seed}</td><td>${esc(h.name || '')}</td><td><span class="pill ${h.status}">${h.status}</span>${h.error ? `<div class="muted">${esc(h.error.slice(0, 140))}</div>` : ''}</td><td>${when(h.publishAt)}</td><td>${(h.files || []).map((f) => `<a href="${studioUrl('/output/' + encodeURIComponent(f))}" target="_blank">${esc(f)}</a>`).join('<br>')}${(h.videos || []).map((v) => `<br><a href="${esc(v.url)}" target="_blank">▶ YouTube (${v.format})</a>`).join('')}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nothing yet.</td></tr>';
+    // live progress of the video being made
+    const job = (st.renders || [])[0];
+    let pct = 0, text = '';
+    if (st.busy) {
+      const what = st.current || 'video';
+      if (job && job.stage === 'frames' && job.total) {
+        pct = Math.min(99, (job.frames / job.total) * 100);
+        const left = job.total - job.frames, rate = job.frames / Math.max(1, job.elapsed / 1000);
+        const eta = job.frames > 20 && rate > 0 ? left / rate + 15 : null; // + about 15 s to mix sound
+        const mmss = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ` : '') + `${Math.round(s % 60)}s`;
+        text = `Rendering ${what} · ${job.format} · ${Math.round(pct)}% done, ${100 - Math.round(pct)}% left · frame ${job.frames} of ${job.total} (${left} to go)` + (eta ? ` · about ${mmss(eta)} left` : '');
+      }
+      else if (job && job.stage === 'mixing') { pct = 100; text = `Mixing music and narration · ${what}`; }
+      else if (st.stage === 'uploading') { pct = 100; text = `Uploading to YouTube · ${what}`; }
+      else { pct = 2; text = `Starting renderer · ${what}`; }
+      if (st.queued) text += ` · ${st.queued} more waiting`;
+    }
+    $('renderBox').style.display = st.busy ? '' : 'none';
+    $('renderBar').style.width = pct + '%';
+    $('renderText').textContent = text;
+    clearTimeout(refresh.t); refresh.t = setTimeout(refresh, st.busy ? 1500 : 4000);
     $('log').textContent = (st.lastError ? 'Last error: ' + st.lastError + '\n\n' : '') + (st.log.join('\n') || 'No activity yet.');
   }
 
@@ -64,6 +86,6 @@
     const q = new URLSearchParams(location.search);
     if (q.get('yt') === 'connected') alertBox('YouTube connected!');
     if (q.get('yt') === 'error') alertBox('YouTube connection failed: ' + (q.get('msg') || ''), true);
-    await refresh(); setInterval(refresh, 4000);
+    await refresh();
   })();
 })();
