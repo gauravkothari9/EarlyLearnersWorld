@@ -5,7 +5,8 @@
 #   e.g. sudo bash deploy/setup.sh earlylearners.43-205-166-13.sslip.io
 #
 # Shares the box with TurtleReels (5000) and Stick Reels (5001): this app listens on 127.0.0.1:5002
-# and adds its own Caddy site file. Caddy gives HTTPS and a password prompt (the studio has no login).
+# and adds its own Caddy site file for HTTPS. The pages are hosted on Vercel and call this API with
+# the admin password from .admin-password (checked by server.js).
 # Rendering runs at low CPU priority so the other sites stay responsive. Safe to run again.
 set -euo pipefail
 
@@ -53,8 +54,7 @@ if [[ ! -s "$PASS_FILE" ]]; then
   head -c 18 /dev/urandom | base64 | tr -d '/+=' > "$PASS_FILE"
   NEW_PASS=1
 fi
-chown "$APP_USER:$APP_USER" "$PASS_FILE" && chmod 600 "$PASS_FILE"
-HASH="$(caddy hash-password --plaintext "$(cat "$PASS_FILE")")"
+chown "$APP_USER:$APP_USER" "$PASS_FILE" && chmod 600 "$PASS_FILE"   # server.js reads it
 
 echo "==> systemd service"
 cat > /etc/systemd/system/kids-shorts.service <<EOF
@@ -92,9 +92,6 @@ mkdir -p /etc/caddy/sites
 cat > /etc/caddy/sites/kids-shorts.caddy <<EOF
 $HOST {
 	encode gzip
-	basic_auth {
-		admin $HASH
-	}
 	reverse_proxy 127.0.0.1:$PORT
 }
 EOF
@@ -107,7 +104,7 @@ sleep 3
 if systemctl is-active --quiet kids-shorts && curl -fsS "http://127.0.0.1:$PORT/api/ping" >/dev/null; then
   echo
   echo "Kids Shorts Studio is running: https://$HOST"
-  echo "Login: admin / $( [[ -n "${NEW_PASS:-}" ]] && cat "$PASS_FILE" || echo "(unchanged; see $PASS_FILE)" )"
+  echo "Admin password: $( [[ -n "${NEW_PASS:-}" ]] && cat "$PASS_FILE" || echo "(unchanged; see $PASS_FILE)" )"
   echo "Logs:    sudo journalctl -u kids-shorts -f"
 else
   echo "The service did not start. See: sudo journalctl -u kids-shorts -n 50"

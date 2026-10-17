@@ -4,6 +4,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const { VOICES, DEFAULT_VOICE, speechFile, wavDuration, schedule } = require('./voice');
@@ -16,6 +17,21 @@ let PORT = 5180;
 const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 const redirectUri = () => (PUBLIC_URL ? `${PUBLIC_URL}/oauth2callback` : `http://127.0.0.1:${PORT}/oauth2callback`);
 const siteUrl = () => PUBLIC_URL || `http://localhost:${PORT}`;
+
+// Admin key for requests that come through the proxy (the hosted server). Read from ADMIN_KEY or
+// .admin-password. Direct local requests (this PC, or headless Chrome on the server) need no key.
+const ADMIN_KEY = (process.env.ADMIN_KEY || (() => { try { return fs.readFileSync(path.join(__dirname, '.admin-password'), 'utf8'); } catch (e) { return ''; } })()).trim();
+const viaProxy = (req) => !!req.headers['x-forwarded-for'];
+function keyOk(req, url) {
+  const auth = String(req.headers.authorization || '');
+  const given = auth.startsWith('Bearer ') ? auth.slice(7) : url.searchParams.get('key') || '';
+  const a = Buffer.from(given), b = Buffer.from(ADMIN_KEY);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+// Sites the browser may return to after the YouTube login (the Vercel frontend, or localhost).
+const SITE_URLS = (process.env.SITE_URLS || '').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean);
+const okReturn = (o) => SITE_URLS.includes(o) || /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(o) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o);
+let ytReturn = null;
 
 const ROOT = __dirname;
 const PUB = path.join(ROOT, 'public');
@@ -82,6 +98,20 @@ async function finish(job) {
 async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
+  // The Vercel-hosted pages call this server from another origin. Access is guarded by the
+  // admin key (sent as a header, not a cookie), so any origin may make the call.
+  if (req.headers.origin) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Range');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  if (viaProxy(req) && /^\/(api|output)\//.test(p)) {
+    if (!ADMIN_KEY) return json(res, 503, { error: 'Server has no admin key set.' });
+    if (!keyOk(req, url)) return json(res, 401, { error: 'Login needed' });
+  }
   try {
     if (p === '/api/ping') return json(res, 200, { ok: true, platform: process.platform });
     if (p === '/api/voices') return json(res, 200, { voices: VOICES.map(({ id, label }) => ({ id, label })), default: DEFAULT_VOICE });
@@ -106,10 +136,11 @@ async function handle(req, res) {
     if (p === '/api/autopilot/run' && req.method === 'POST') { const o = JSON.parse((await readBody(req)).toString() || '{}'); autopilot.runNow(o); return json(res, 200, { started: true }); }
     if (p === '/api/youtube/client' && req.method === 'POST') { yt.setClient(JSON.parse((await readBody(req)).toString())); return json(res, 200, { ok: true, redirectUri: redirectUri() }); }
     if (p === '/api/youtube/disconnect' && req.method === 'POST') { yt.disconnect(); return json(res, 200, { ok: true }); }
-    if (p === '/api/youtube/connect') { res.writeHead(302, { Location: yt.authUrl(redirectUri()) }); return res.end(); }
+    if (p === '/api/youtube/connect') { const r = String(url.searchParams.get('return') || '').replace(/\/+$/, ''); ytReturn = okReturn(r) ? r : null; res.writeHead(302, { Location: yt.authUrl(redirectUri()) }); return res.end(); }
     if (p === '/oauth2callback') {
-      try { if (url.searchParams.get('error')) throw new Error(url.searchParams.get('error')); await yt.handleCallback(url.searchParams.get('code'), url.searchParams.get('state'), redirectUri()); res.writeHead(302, { Location: `${siteUrl()}/autopilot.html?yt=connected` }); }
-      catch (e) { res.writeHead(302, { Location: `${siteUrl()}/autopilot.html?yt=error&msg=` + encodeURIComponent(e.message) }); }
+      const back = ytReturn || siteUrl(); ytReturn = null;
+      try { if (url.searchParams.get('error')) throw new Error(url.searchParams.get('error')); await yt.handleCallback(url.searchParams.get('code'), url.searchParams.get('state'), redirectUri()); res.writeHead(302, { Location: `${back}/autopilot.html?yt=connected` }); }
+      catch (e) { res.writeHead(302, { Location: `${back}/autopilot.html?yt=error&msg=` + encodeURIComponent(e.message) }); }
       return res.end();
     }
     if (p === '/api/outputs') {

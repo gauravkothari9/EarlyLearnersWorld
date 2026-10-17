@@ -87,10 +87,14 @@ it falls back to the offline Windows voice.
 - `runner.js`: headless-browser renderer. `youtube.js`: OAuth and upload. `autopilot.js`: scheduler.
 - `data/`: your settings, YouTube credentials, tokens and history. **Keep this folder private.**
 
-## Hosting on AWS
-The studio runs on the shared TurtleReels EC2 box (ap-south-1) at
-`https://earlylearners.43-205-166-13.sslip.io`, behind Caddy with HTTPS and a password (user `admin`).
-- **Deploy or update:** commit, then run `powershell -ExecutionPolicy Bypass -File deploy\update.ps1`.
+## Hosting: Vercel (pages) + AWS (server)
+- **Pages** (`public/`) are hosted on Vercel from this GitHub repo. Vercel import: preset **Other**,
+  root `./`, no build. `vercel.json` serves the `public` folder; `public/js/config.js` holds the server address.
+  Pushing to GitHub updates the pages.
+- **Server** runs on the shared TurtleReels EC2 box (ap-south-1) at `https://earlylearners.43-205-166-13.sslip.io`.
+  The pages call it directly, not through Vercel, whose 4.5 MB request limit would break exports.
+  Each browser asks for the admin password once.
+- **Update the server:** commit, then run `powershell -ExecutionPolicy Bypass -File deploy\update.ps1`.
   It ships the committed code only; the server keeps its own `data/`, `output/` and password.
 - **SSH times out:** your home IP changed. Run `node deploy\aws-provision.mjs` in the *Turtle Reels* folder.
 - **YouTube on the server:** create a Google OAuth client of type *Web application* and add

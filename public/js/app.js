@@ -252,7 +252,7 @@
     const files = await (await fetch('/api/outputs')).json();
     const box = $('outputs');
     if (!files.length) { box.innerHTML = '<p class="muted">Nothing yet.</p>'; return; }
-    box.innerHTML = files.slice(0, 40).map((f) => `<div class="out"><video src="${f.url}#t=1" preload="metadata" muted></video><div><b title="${f.file}">${f.file}</b><a href="${f.url}" target="_blank">open</a> · <a href="${f.url}" download>download</a> · ${(f.size / 1048576).toFixed(1)} MB</div></div>`).join('');
+    box.innerHTML = files.slice(0, 40).map((f) => `<div class="out"><video src="${studioUrl(f.url)}#t=1" preload="metadata" muted></video><div><b title="${f.file}">${f.file}</b><a href="${studioUrl(f.url)}" target="_blank">open</a> · <a href="${studioUrl(f.url)}" download>download</a> · ${(f.size / 1048576).toFixed(1)} MB</div></div>`).join('');
   }
 
   // ---------- settings ----------
