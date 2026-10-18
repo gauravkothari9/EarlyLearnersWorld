@@ -49,7 +49,7 @@ function pickRandom(o = {}) {
   throw new Error('Every variant has been used — add more styles.');
 }
 
-function styleList() { const KS = loadKS(); return KS.STYLES.map((s, i) => ({ id: s.id, name: s.name, tag: s.tag, index: i + 1, random: !!s.pick, lesson: KS.isLesson(s) })); }
+function styleList() { const KS = loadKS(); return KS.STYLES.map((s, i) => ({ id: s.id, name: s.name, tag: s.tag, desc: s.desc || '', index: i + 1, random: !!s.pick, lesson: KS.isLesson(s) })); }
 function fingerprint(styleId, seed) { const KS = loadKS(); const st = KS.STYLES.find((s) => s.id === styleId); return st ? KS.variant(st, seed | 0).fp : null; }
 
 module.exports = { loadKS, readHistory, writeHistory, addHistory, updateHistory, pickRandom, styleList, fingerprint, DATA };

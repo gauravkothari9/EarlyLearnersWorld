@@ -17,13 +17,13 @@ const findBrowser = () => BROWSERS.find((p) => fs.existsSync(p));
 let PORT = null, EVENTS = null, chain = Promise.resolve();
 function init(port, events) { PORT = port; EVENTS = events; }
 
-// jobs: [{ styleId, seed, format, name, outName, voice, res, fps, channel, captions, outro }]
+// jobs: [{ styleId, seed, format, outName, voice, res, fps, channel, captions, narration, outro, watermark, trialMark }]
 function renderJobs(jobs, onLog = () => {}) {
   const run = () => new Promise((resolve, reject) => {
     const browser = findBrowser();
     if (!browser) return reject(new Error('Chrome or Edge is needed for rendering (set CHROME_PATH).'));
     const batchId = crypto.randomBytes(6).toString('hex');
-    const url = `http://127.0.0.1:${PORT}/?batch=1&batchId=${batchId}&jobs=${encodeURIComponent(JSON.stringify(jobs))}`;
+    const url = `http://127.0.0.1:${PORT}/render.html?batchId=${batchId}&jobs=${encodeURIComponent(JSON.stringify(jobs))}`;
     const profile = path.join(__dirname, '.tmp', 'chrome-runner');
     const proc = spawn(browser, ['--headless=new', '--disable-gpu', '--mute-audio', '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', `--user-data-dir=${profile}`, '--window-size=1280,900', url], { stdio: 'ignore' });
     let done = false;

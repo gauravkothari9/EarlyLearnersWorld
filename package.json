@@ -2,12 +2,13 @@
   "name": "kids-shorts-studio",
   "version": "1.0.0",
   "private": true,
-  "description": "Make 3D-style kids cartoon Shorts and videos in 12 styles with HTML canvas, then export MP4.",
+  "description": "Kids learning cartoon Shorts platform: accounts, plans, render queue, schedules and YouTube upload.",
   "scripts": {
-    "start": "node server.js",
-    "render": "node render-all.js",
-    "render:shorts": "node render-all.js --formats short",
-    "render:videos": "node render-all.js --formats video"
+    "setup": "npm install && npm --prefix server install && npm --prefix client install",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "dev": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
   },
   "dependencies": {
     "msedge-tts": "^2.1.0"

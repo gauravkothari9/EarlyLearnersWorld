@@ -3,3 +3,5 @@ output/
 data/
 .tmp/
 .admin-password
+server/.env
+client/dist/

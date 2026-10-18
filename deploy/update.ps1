@@ -1,7 +1,7 @@
 # Push the committed code to the shared AWS box and (re)start Kids Shorts Studio.
 #   powershell -ExecutionPolicy Bypass -File deploy\update.ps1
-# Ships only git-tracked files, so the server keeps its own data/ (YouTube login, history,
-# autopilot settings), output/ videos and admin password.
+# Ships only git-tracked files, so the server keeps its own server/.env (MONGO_URI, Razorpay keys),
+# data/ (variation history) and output/ videos. First time: copy server/.env to ~/kids-shorts/server/.
 $ErrorActionPreference = 'Stop'
 $Server = 'ubuntu@43.205.166.13'
 $HostName = 'earlylearners.43-205-166-13.sslip.io'

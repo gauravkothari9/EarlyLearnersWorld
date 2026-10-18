@@ -173,6 +173,12 @@
       K.text(c, opts.channel || 'EarlyLearnersWorld', g.hw - 28, g.hh - 48, 30, { align: 'right', sw: 6, shadow: false });
       c.restore();
     }
+    // free-trial videos carry a big banner so they can't pass as finished videos
+    if (opts.trialMark) {
+      c.save(); c.globalAlpha = 0.55; c.rotate(-0.35);
+      K.text(c, opts.trialMark, 0, 0, 64, { align: 'center', sw: 10, shadow: false });
+      c.restore();
+    }
     // fade in / out
     const fadeIn = K.seg(time, 0, 0.25), fadeOut = K.seg(tl.total - time, 0, 0.35);
     const fade = Math.min(fadeIn, fadeOut);
