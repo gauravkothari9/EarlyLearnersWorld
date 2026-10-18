@@ -73,3 +73,10 @@ the first time someone subscribes.
   Then commit and run `powershell -ExecutionPolicy Bypass -File deploy\update.ps1`.
 - Add `https://<vercel-domain>/api/youtube/callback` to the Google OAuth client's redirect URIs.
 - **Logs**: `sudo journalctl -u kids-shorts -f`.
+
+### Own server later
+
+`node deploy/aws-provision.mjs` creates a separate t3.small for this app (key `~/.ssh/kidsshorts.pem`,
+firewall `kidsshorts-sg`). It needs free vCPU quota: in Mumbai the account limit is 8 vCPUs and 4 servers
+already use it, so raise the limit (Service Quotas, "Running On-Demand Standard instances") or pick
+another region with `AWS_REGION_KS` first.
