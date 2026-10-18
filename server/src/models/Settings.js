@@ -14,7 +14,6 @@ const settingsSchema = new mongoose.Schema({
   outro: { type: Boolean, default: true },
   watermark: { type: Boolean, default: true },
   learningOnly: { type: Boolean, default: true }, // "Surprise me" and "Any style" pick lessons only
-  madeForKids: { type: Boolean, default: true }, // YouTube "Made for kids" (COPPA)
   categoryId: { type: String, default: '27' }, // YouTube "Education"
   descriptionFooter: { type: String, default: '' },
   youtube: {

@@ -460,7 +460,6 @@ function SettingsSection() {
         {toggle('outro', 'Subscribe outro at the end')}
         {toggle('watermark', 'Channel name watermark')}
         {toggle('learningOnly', 'Surprise me and "Any style" pick learning lessons only')}
-        {toggle('madeForKids', 'Mark uploads "Made for kids" (required for children\'s content, COPPA)')}
       </div>
       <label className="stack">
         <span className="label">Description footer</span>

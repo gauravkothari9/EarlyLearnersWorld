@@ -56,11 +56,12 @@ async function authorizedClient(userId) {
  * YouTube makes it public at that time on its own (publishAt requires privacyStatus private).
  * `thumbnail` (16:9 videos only; Shorts can't have custom thumbnails) is set after the upload.
  */
-export async function uploadVideo({ userId, file, thumbnail, title, description, tags, privacy, publishAt, categoryId, madeForKids = true, onProgress }) {
+export async function uploadVideo({ userId, file, thumbnail, title, description, tags, privacy, publishAt, categoryId, onProgress }) {
   const auth = await authorizedClient(userId);
   const youtube = google.youtube({ version: 'v3', auth });
   const size = fs.statSync(file).size;
-  const kids = { selfDeclaredMadeForKids: madeForKids !== false };
+  // Every upload is declared "No, it's not made for kids".
+  const kids = { selfDeclaredMadeForKids: false };
   const res = await youtube.videos.insert(
     {
       part: ['snippet', 'status'],

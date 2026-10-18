@@ -117,7 +117,6 @@ export async function publishJob(job, { retry = false } = {}) {
       privacy: job.privacy,
       publishAt,
       categoryId: settings.categoryId,
-      madeForKids: settings.madeForKids,
       onProgress: (p) => {
         writes = writes.then(() => Job.updateOne({ _id: job._id }, { progress: p })).catch(() => {});
       },

@@ -28,7 +28,6 @@ const SETTING_FIELDS = {
   outro: Boolean,
   watermark: Boolean,
   learningOnly: Boolean,
-  madeForKids: Boolean,
   categoryId: (v) => (/^\d{1,3}$/.test(String(v)) ? String(v) : undefined),
   descriptionFooter: (v) => String(v).slice(0, 2000),
 };
