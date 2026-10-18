@@ -19,6 +19,7 @@ export default function JobCard({ job, categoryName, onChanged, notify }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [confirmAgain, setConfirmAgain] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const active = ACTIVE.has(job.status);
   // scheduled to go live later (held here, or uploaded with YouTube's publishAt)
   const pendingLive = Boolean(job.scheduledFor) && new Date(job.scheduledFor) > new Date();
@@ -169,9 +170,20 @@ export default function JobCard({ job, categoryName, onChanged, notify }) {
             </a>
           )}
           {!active && (
-            <button className="btn ghost sm icon danger" title="Delete" onClick={() => act(() => api.deleteJob(job.id), 'Deleted')}>
-              <Trash2 size={14} />
-            </button>
+            confirmDelete ? (
+              <>
+                <button className="btn ghost sm warn-btn" onClick={() => act(() => api.deleteJob(job.id),
+                  job.youtubeId ? 'Deleted here. The video is still on YouTube.' : 'Deleted')}>
+                  <Trash2 size={14} /> Delete{job.youtubeId ? ' here' : ''}?
+                </button>
+                <button className="btn ghost sm" onClick={() => setConfirmDelete(false)}>Keep</button>
+              </>
+            ) : (
+              <button className="btn ghost sm icon danger" onClick={() => setConfirmDelete(true)}
+                title={job.youtubeId ? 'Delete from this app (the YouTube video stays)' : 'Delete'}>
+                <Trash2 size={14} />
+              </button>
+            )
           )}
         </div>
       </div>

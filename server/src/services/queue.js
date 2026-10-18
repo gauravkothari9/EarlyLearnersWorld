@@ -47,14 +47,15 @@ async function renderJob(job) {
     [result] = await runner.renderJobs([{
       styleId: job.category, seed: job.seed, format: job.format, outName, voice: settings.voice, res: 1080, fps: 30,
       channel: settings.channel, captions: settings.captions, narration: settings.narration, outro: settings.outro,
-      watermark: settings.watermark, trialMark: job.trial ? 'FREE TRIAL · Kids Shorts Studio' : '',
+      watermark: settings.watermark, trialMark: job.trial ? 'FREE TRIAL' : '',
     }], (m) => console.log('[render]', m));
   } finally {
     stop();
     await writes;
   }
   if (!result?.file) throw new Error('Renderer returned no video');
-  const thumb = await makeThumbnail(path.join(OUTPUT_DIR, result.file));
+  // 40% in: past the intro and its fade, before the outro
+  const thumb = await makeThumbnail(path.join(OUTPUT_DIR, result.file), Math.max(2, (result.duration || 10) * 0.4));
 
   Object.assign(job, {
     video: result.file,

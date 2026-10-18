@@ -102,11 +102,11 @@ async function finish(job) {
   return outFile;
 }
 
-/** A still from the finished video for the Shorts library and YouTube. */
-export function makeThumbnail(videoFile) {
+/** A still from the finished video (at `at` seconds) for the Shorts library and YouTube. */
+export function makeThumbnail(videoFile, at = 3) {
   const jpg = videoFile.replace(/\.mp4$/, '.jpg');
   return new Promise((resolve) => {
-    const p = spawn('ffmpeg', ['-y', '-v', 'error', '-ss', '3', '-i', videoFile, '-frames:v', '1', '-q:v', '3', jpg], { windowsHide: true });
+    const p = spawn('ffmpeg', ['-y', '-v', 'error', '-ss', at.toFixed(2), '-i', videoFile, '-frames:v', '1', '-q:v', '3', jpg], { windowsHide: true });
     p.on('close', (c) => resolve(c === 0 ? jpg : null));
     p.on('error', () => resolve(null));
   });

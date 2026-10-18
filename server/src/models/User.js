@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema(
       currentStart: Date,
       currentEnd: Date,
       cancelAtPeriodEnd: { type: Boolean, default: false },
+      granted: { type: Boolean, default: false }, // given free by an admin, not paid through Razorpay
     },
     oauthState: String, // anti-CSRF value for the YouTube connect flow
   },

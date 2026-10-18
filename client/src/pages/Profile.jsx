@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CheckCircle2, Clapperboard, Copy, CreditCard, KeyRound, Lock, LogOut, Pencil, Settings2, Tag, Trash2, UserRound } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clapperboard, Copy, CreditCard, KeyRound, Lock, LogOut, Pencil, Settings2, Shield, Tag, Trash2, UserRound, Users } from 'lucide-react';
 import { api } from '../api';
 import JobCard from '../components/JobCard';
 import ScheduleSection from './Schedule';
@@ -14,13 +14,15 @@ const SECTIONS = [
   { id: 'shorts', label: 'Your Shorts', icon: Clapperboard },
   { id: 'schedule', label: 'Schedule', icon: CalendarClock },
   { id: 'settings', label: 'Video settings', icon: Settings2 },
+  { id: 'users', label: 'Users', icon: Users, admin: true },
 ];
 
 export default function Profile() {
   const { section } = useParams();
   const [params, setParams] = useSearchParams();
-  const { notify, jobs } = useStore();
+  const { notify, jobs, user } = useStore();
   const navigate = useNavigate();
+  const sections = SECTIONS.filter((s) => !s.admin || user?.role === 'admin');
 
   useEffect(() => {
     const yt = params.get('youtube');
@@ -31,14 +33,14 @@ export default function Profile() {
   }, [params, setParams, notify]);
 
   useEffect(() => {
-    if (!SECTIONS.some((s) => s.id === section)) navigate('/profile/account', { replace: true });
-  }, [section, navigate]);
+    if (!sections.some((s) => s.id === section)) navigate('/profile/account', { replace: true });
+  }, [section, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="profile">
       <aside className="profile-nav">
         <h1>Profile</h1>
-        {SECTIONS.map(({ id, label, icon: Icon }) => (
+        {sections.map(({ id, label, icon: Icon }) => (
           <NavLink key={id} to={`/profile/${id}`}>
             <Icon size={16} /> {label}
             {id === 'shorts' && jobs.length > 0 && <span className="nav-count">{jobs.length}</span>}
@@ -51,6 +53,7 @@ export default function Profile() {
         {section === 'shorts' && <ShortsSection />}
         {section === 'schedule' && <ScheduleSection />}
         {section === 'settings' && <SettingsSection />}
+        {section === 'users' && user?.role === 'admin' && <UsersSection />}
       </div>
     </div>
   );
@@ -227,7 +230,7 @@ function BillingSection() {
             <h2>{hasPlan && plan ? `${plan.name} plan` : 'Free account'}</h2>
             <p className="muted">
               {hasPlan && plan
-                ? `${rupees(sub.interval === 'yearly' ? plan.yearly : plan.monthly)} / ${sub.interval === 'yearly' ? 'year' : 'month'} · ${
+                ? sub.granted ? 'Given free by the platform admin' : `${rupees(sub.interval === 'yearly' ? plan.yearly : plan.monthly)} / ${sub.interval === 'yearly' ? 'year' : 'month'} · ${
                   sub.cancelAtPeriodEnd || sub.status === 'cancelled' ? `ends ${fmt(sub.currentEnd)}` : `renews ${fmt(sub.currentEnd)}`}`
                 : `${u.trialLeft ? '1 free trial Short left' : 'Free trial Short used'}. Choose a plan to upload, schedule and create more.`}
             </p>
@@ -243,7 +246,7 @@ function BillingSection() {
         )}
         <div className="row">
           <Link to="/pricing" className="btn primary sm">{hasPlan ? 'Change plan' : 'See plans'}</Link>
-          {hasPlan && !sub.cancelAtPeriodEnd && sub.status !== 'cancelled' && (
+          {hasPlan && !sub.granted && !sub.cancelAtPeriodEnd && sub.status !== 'cancelled' && (
             confirmCancel ? (
               <>
                 <button className="btn ghost sm warn-btn" disabled={busy} onClick={cancel}>Yes, cancel at period end</button>
@@ -381,7 +384,7 @@ function ShortsSection() {
       </div>
       {list.length === 0 ? (
         <div className="empty">
-          {jobs.length ? 'Nothing in this filter.' : <>No Shorts yet. <Link to="/" className="link">Pick a style</Link> to make one.</>}
+          {jobs.length ? <p>Nothing in this filter.</p> : <p>No Shorts yet. <Link to="/" className="link">Pick a style</Link> to make one.</p>}
         </div>
       ) : (
         <div className="job-grid">
@@ -464,6 +467,86 @@ function SettingsSection() {
         <textarea rows={3} defaultValue={settings.descriptionFooter} placeholder="Links, credits, call to action…"
           onBlur={(e) => saveSettings({ descriptionFooter: e.target.value })} />
       </label>
+    </section>
+  );
+}
+
+function UsersSection() {
+  const { notify, user: me } = useStore();
+  const [users, setUsers] = useState(null);
+
+  useEffect(() => {
+    api.adminUsers().then(setUsers).catch((e) => notify(e.message, 'error'));
+  }, [notify]);
+
+  const update = async (id, patch, msg) => {
+    try {
+      const next = await api.adminUpdateUser(id, patch);
+      setUsers((list) => list.map((u) => (u.id === id ? next : u)));
+      notify(msg);
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+  const signOut = async (id) => {
+    try {
+      await api.adminLogoutUser(id);
+      notify('Signed out on every device');
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  };
+  const fmt = (d) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <span className="card-icon"><Shield size={18} /></span>
+        <div>
+          <h2>Users {users && <span className="muted">· {users.length}</span>}</h2>
+          <p className="muted">Every account on the platform. Give a plan for free, make someone an admin, or sign them out.</p>
+        </div>
+      </div>
+      {!users ? <p className="muted">Loading…</p> : (
+        <div className="user-table">
+          {users.map((u) => (
+            <div key={u.id} className="user-row">
+              <div className="user-who">
+                <strong>{u.name}{u.id === me?.id ? ' (you)' : ''}</strong>
+                <span className="muted">{u.email} · joined {fmt(u.createdAt)}</span>
+                <span className="muted">
+                  {u.videos} videos · {u.published} published · {u.schedules} schedules
+                  {u.paidPlan ? ` · pays: ${u.paidPlan}` : ''}{!u.access && u.trialUsed ? ' · trial used' : ''}
+                </span>
+              </div>
+              <label className="user-field">
+                <span className="label">Plan</span>
+                <select value={u.role === 'admin' ? 'admin' : u.granted ? u.plan : u.access ? 'paid' : ''}
+                  disabled={u.role === 'admin' || (u.access && !u.granted)}
+                  onChange={(e) => update(u.id, { plan: e.target.value || null }, e.target.value ? `Gave ${u.name} the ${e.target.value} plan` : `Removed ${u.name}'s free plan`)}>
+                  {u.role === 'admin' && <option value="admin">Full access (admin)</option>}
+                  {u.access && !u.granted && u.role !== 'admin' && <option value="paid">Paid plan</option>}
+                  <option value="">Free</option>
+                  <option value="basic">Basic (free)</option>
+                  <option value="pro">Pro (free)</option>
+                  <option value="max">Max (free)</option>
+                </select>
+              </label>
+              <label className="user-field">
+                <span className="label">Role</span>
+                <select value={u.role} disabled={u.id === me?.id}
+                  onChange={(e) => update(u.id, { role: e.target.value }, `${u.name} is now ${e.target.value === 'admin' ? 'an admin' : 'a user'}`)}>
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <button className="btn ghost sm" disabled={u.id === me?.id} onClick={() => signOut(u.id)} title="Sign out on every device">
+                <LogOut size={14} /> Sign out
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
