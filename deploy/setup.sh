@@ -5,8 +5,8 @@
 #   e.g. sudo bash deploy/setup.sh earlylearners.43-205-166-13.sslip.io
 #
 # Shares the box with TurtleReels (5000) and Stick Reels (5001): this app listens on 127.0.0.1:5002
-# and adds its own Caddy site file for HTTPS. The React app is hosted on Vercel, which forwards
-# /api and /media here (see vercel.json). Needs server/.env with MONGO_URI (MongoDB Atlas).
+# and adds its own Caddy site file for HTTPS. It serves the React app itself, and Vercel can also host it
+# and forward /api and /media here (see vercel.json). Needs server/.env with MONGO_URI (MongoDB Atlas).
 # Rendering runs at low CPU priority so the other sites stay responsive. Safe to run again.
 set -euo pipefail
 
@@ -48,6 +48,9 @@ fi
 echo "==> Node packages"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 as_app "cd '$APP_DIR' && npm ci --omit=dev && npm --prefix server ci --omit=dev"
+
+echo "==> React app (served here too, so https://$HOST works on its own)"
+as_app "cd '$APP_DIR' && npm --prefix client ci && npm --prefix client run build"
 as_app "mkdir -p '$APP_DIR/data' '$APP_DIR/output' '$APP_DIR/.tmp'"
 
 echo "==> Production settings in server/.env"
